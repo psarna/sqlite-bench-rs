@@ -25,6 +25,9 @@ struct Config {
 
     #[clap(long, default_value = "100")]
     row_size: usize,
+
+    #[clap(long, default_value = "")]
+    table_options: String,
 }
 
 fn main() -> Result<()> {
@@ -36,6 +39,7 @@ fn main() -> Result<()> {
     let batch_count = config.batch_count;
     let row_size = config.row_size;
     let db_file = config.db_file;
+    let table_options = config.table_options;
 
     fs::remove_file(&db_file).ok(); // Remove db file, if it already exists.
 
@@ -50,7 +54,9 @@ fn main() -> Result<()> {
     conn.execute(format!("PRAGMA synchronous = {}", synchronous).as_str(), [])?;
 
     // Initialize schema.
-    conn.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)", [])?;
+    conn.execute("DROP TABLE IF EXISTS t", [])?;
+    let schema = "CREATE TABLE t (id, name TEXT) ".to_owned() + &table_options;
+    conn.execute(&schema, [])?;
 
     let name = "x".repeat(row_size);
     let mut current_id = 0;
@@ -87,7 +93,7 @@ fn insert_batch(
     for _ in 0..batch_size {
         tx.execute(
             "INSERT INTO t (id, name) VALUES (?1, ?2)",
-            params![*current_id, name],
+            params![current_id.to_string(), name],
         )?;
         *current_id += 1;
     }
